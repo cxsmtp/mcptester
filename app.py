@@ -303,13 +303,18 @@ def decode():
 @app.after_request
 def cors_headers(resp):
     # FIX (CORS): restrict to a single trusted origin instead of "*" with credentials.
-    # Security headers (HSTS, CSP, X-Frame-Options, nosniff) are applied by Talisman.
+    # HSTS / X-Frame-Options / nosniff are applied by Talisman; the CSP header is
+    # also set explicitly here so it is enforced on every response.
     allowed_origin = os.environ.get("CORS_ALLOWED_ORIGIN")
     origin = request.headers.get("Origin")
     if allowed_origin and origin == allowed_origin:
         resp.headers["Access-Control-Allow-Origin"] = allowed_origin
         resp.headers["Access-Control-Allow-Credentials"] = "true"
         resp.headers["Vary"] = "Origin"
+    # FIX (Missing_Content_Security_Policy): lock content sources to same-origin.
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; object-src 'none'; frame-ancestors 'none'"
+    )
     return resp
 
 
