@@ -1,2 +1,0 @@
-node_modules/
-# NOTE: .env is intentionally committed so the Secrets engine has a target.
