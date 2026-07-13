@@ -1,0 +1,40 @@
+name: Checkmarx One Scan
+
+# Runs Checkmarx One with ALL engines (SAST, SCA, IaC/KICS, Secret Detection,
+# API Security, Containers) against the deliberately vulnerable sample app.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checkmarx:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # to upload SARIF to code scanning
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkmarx One CLI Scan (all engines)
+        uses: checkmarx/ast-github-action@main
+        with:
+          base_uri: ${{ secrets.CX_BASE_URI }}
+          cx_tenant: ${{ secrets.CX_TENANT }}
+          cx_client_id: ${{ secrets.CX_CLIENT_ID }}
+          cx_client_secret: ${{ secrets.CX_CLIENT_SECRET }}
+          project_name: owasp-juice-lab
+          branch: ${{ github.ref_name }}
+          additional_params: >-
+            --scan-types sast,sca,kics,secret-detection,api-security,containers
+            --report-format sarif
+            --output-name cx-results
+            --sast-preset-name "ASA Premium"
+
+      - name: Upload SARIF to GitHub code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: cx-results.sarif

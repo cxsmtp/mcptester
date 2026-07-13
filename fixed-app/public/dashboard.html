@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<!-- Remediated client-side code: no DOM XSS sinks, no embedded secrets, SRI on CDN. -->
+<html>
+<head>
+  <title>Dashboard</title>
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'">
+</head>
+<body>
+  <div id="content"></div>
+  <a id="link" rel="noopener noreferrer">home</a>
+  <script src="/js/app.js"></script>
+</body>
+</html>
