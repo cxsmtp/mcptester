@@ -1,0 +1,57 @@
+name: Checkmarx One Scan
+
+# Runs Checkmarx One with ALL engines (SAST, SCA, IaC/KICS, Secret Detection,
+# API Security, Containers) against the deliberately vulnerable sample app.
+#
+# Requires these repository secrets to actually scan:
+#   CX_BASE_URI, CX_TENANT, CX_CLIENT_ID, CX_CLIENT_SECRET
+# When they are absent the scan is skipped (job stays green) instead of failing.
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checkmarx:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # to upload SARIF to code scanning
+    env:
+      CX_CLIENT_ID: ${{ secrets.CX_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Checkmarx credentials
+        id: creds
+        run: |
+          if [ -n "${CX_CLIENT_ID}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Checkmarx credentials (CX_*) are not configured; skipping scan. Add them in repo Settings > Secrets to enable scanning."
+          fi
+
+      - name: Checkmarx One CLI Scan (all engines)
+        if: steps.creds.outputs.configured == 'true'
+        uses: checkmarx/ast-github-action@main
+        with:
+          base_uri: ${{ secrets.CX_BASE_URI }}
+          cx_tenant: ${{ secrets.CX_TENANT }}
+          cx_client_id: ${{ secrets.CX_CLIENT_ID }}
+          cx_client_secret: ${{ secrets.CX_CLIENT_SECRET }}
+          project_name: owasp-juice-lab
+          branch: ${{ github.ref_name }}
+          additional_params: >-
+            --scan-types sast,sca,kics,secret-detection,api-security,containers
+            --report-format sarif
+            --output-name cx-results
+            --sast-preset-name "ASA Premium"
+
+      - name: Upload SARIF to GitHub code scanning
+        if: steps.creds.outputs.configured == 'true' && hashFiles('cx-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: cx-results.sarif

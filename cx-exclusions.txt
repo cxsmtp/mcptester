@@ -1,0 +1,11 @@
+# Checkmarx One file filters.
+# Pass to the CLI as:  --file-filter "$(paste -sd, cx-exclusions.txt)"
+# or set in the project's Scan Configuration > Filters.
+
+# Exclude the intentionally-vulnerable BEFORE baseline from the AFTER scan (triage T3).
+!vulnerable-app/**
+
+# Never scan build output / vendored deps.
+!**/node_modules/**
+!**/__pycache__/**
+!**/*.min.js
