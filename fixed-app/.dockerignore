@@ -1,8 +1,0 @@
-.git
-.env
-.env.*
-node_modules
-npm-debug.log
-*.md
-deploy
-services/__pycache__
