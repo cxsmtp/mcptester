@@ -5,13 +5,19 @@ This document tracks the security posture of the sample app across a **before**
 and to the Checkmarx One engines (SAST, SCA, IaC/KICS, Secret Detection, API Security,
 Containers).
 
-> **Scan status.** The Checkmarx MCP connector (`CxMCP`) was not authorized in this
-> (non-interactive) session, so the live scan could not be triggered from here. The
-> repository is fully staged for the scan: `.github/workflows/checkmarx.yml` runs all
-> engines on push, and the CLI command is in each app's README. Once `CxMCP` is
-> authorized (or the workflow runs), paste the real numbers into the
-> **Actual scan results** columns below — the crafted inventory tells you what each
-> engine should surface.
+> **Scan status — LIVE RESULTS RECORDED.** Both scans were run against the public repo
+> via Checkmarx One (project `owasp-juice-lab`, `deu.ast.checkmarx.net`). Engines
+> **KICS, SCA, and Secret Detection completed**; **SAST failed on both scans** with
+> `engine failed: (65) One or more queries violated the query security policy` — a
+> tenant-level SAST query-policy restriction, not a code or scan-config issue (a
+> Checkmarx tenant admin must adjust the SAST query policy / preset to enable it).
+> The numbers below are the real 3-engine results.
+>
+> | Scan | Commit | Scan ID | Total |
+> |------|--------|---------|------:|
+> | BEFORE (`vulnerable-app` isolated) | `ef59b26` | `31404b3d-4df3-4753-b202-89cda54c5761` | **367** |
+> | AFTER (`fixed-app` isolated) | `e145603` | `b0b1dcd6-4cdc-4a3e-bb66-f689ec8e4999` | **55** |
+> | (reference) both apps together | `6c25e5e` | `0b0ab0cb-a9cf-4530-8d01-2b11102ea075` | 412 |
 
 ---
 
@@ -133,20 +139,44 @@ When you run the real scan, expect a portion of results to be non-actionable. Pr
 
 ---
 
-## 4. Before / After snapshot
+## 4. Before / After snapshot — ACTUAL Checkmarx One results
 
-| Engine | BEFORE (expected) | AFTER (target) | Actual BEFORE | Actual AFTER |
-|--------|------------------:|---------------:|--------------:|-------------:|
-| SAST | ~90+ | 0 real (T1,T2,T6 triaged) | _fill in_ | _fill in_ |
-| SCA | 80–150 | ~0 (deps upgraded) | _fill in_ | _fill in_ |
-| IaC / KICS | ~40 | 0 (T5,T7 cosmetic) | _fill in_ | _fill in_ |
-| Secrets | ~30 | 0 (env-only) | _fill in_ | _fill in_ |
-| API Security | ~6 | 0 | _fill in_ | _fill in_ |
-| **Total** | **~300+** | **≈0 actionable** | _fill in_ | _fill in_ |
+Live results from Checkmarx One (KICS + SCA + Secret Detection; SAST blocked by tenant
+query policy on both scans, so code-level findings are **not** included in these totals).
 
-Snapshot procedure once `CxMCP` is authorized:
+### By severity
 
-1. Scan `vulnerable-app/` → record BEFORE counts (severity breakdown + total).
-2. Scan `fixed-app/` (exclude `vulnerable-app/**`) → record AFTER counts.
-3. Triage residual AFTER results per §3; confirm actionable = 0.
-4. Paste both severity tables into the "Actual" columns above.
+| Severity | BEFORE (`vulnerable-app`) | AFTER (`fixed-app`) | Reduction |
+|----------|--------------------------:|--------------------:|----------:|
+| Critical | 33 | 3 | −91% |
+| High | 197 | 12 | −94% |
+| Medium | 107 | 16 | −85% |
+| Low | 19 | 15 | −21% |
+| Info | 11 | 9 | −18% |
+| **Total** | **367** | **55** | **−85%** |
+
+### What drove the reduction
+
+- **SCA** — `vulnerable-app` pinned 26 outdated packages (dozens of critical/high CVEs:
+  lodash, handlebars, marked, js-yaml, node-serialize, adm-zip, xmldom, etc.). `fixed-app`
+  upgraded/removed them, eliminating essentially all SCA findings except one **newly
+  disclosed** transitive CVE (see triage T8).
+- **Secret Detection** — the hardcoded AWS/DB/JWT/API keys in `vulnerable-app/.env` and
+  `config/secrets.js` are gone from the `fixed-app` tree (env-only). The 2 residual
+  secret criticals are **historical** (see T9).
+- **KICS** — the insecure Dockerfile/Compose/Terraform/K8s dropped from many
+  critical/high misconfigs to a handful on the hardened manifests (mostly placeholder
+  digests) plus the constant root `.github/workflows/checkmarx.yml`.
+
+### Residual AFTER findings — triage (added from real results)
+
+| # | Finding | Verdict | Action |
+|---|---------|---------|--------|
+| T8 | **SCA CRITICAL** `tar@6.2.1` → CVE-2026-59873 (node-tar gzip-bomb, CWE-770, disclosed 2026-07-08, transitive via bcrypt/jsdom) | **Real but low-risk** (DoS in an extraction path the app never invokes) | **Fixed** — added `overrides: { "tar": ">=7.5.19" }` to `fixed-app/package.json`. |
+| T9 | **2× Secret CRITICAL** `Generic-Api-Key` pointing at `/vulnerable-app/config/secrets.js:30` | **Not in current tree** | The AFTER tree has no `vulnerable-app/`; Secret Detection (`slsaStep: Source`) scans **git history**, so it still sees the secret in older commits. Real remediation = purge history (git-filter-repo/BFG) **and rotate** the exposed values. Not a `fixed-app` code defect. |
+| T10 | Residual KICS on `fixed-app` hardened IaC + root workflow | **Mostly cosmetic** | Placeholder image digests (`sha256:000…`, `sha256:111…`) and the CI workflow file. Replace digests at build time; scope/annotate the rest. |
+
+Reproduce: scan `vulnerable-app/` and `fixed-app/` as isolated trees (or use the two
+scan IDs above). The combined-repo scan (412) is provided only as a whole-repo reference —
+per-directory isolation is required for a clean comparison because the CxMCP finding list
+does not expose file paths for aggregate filtering.
