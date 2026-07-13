@@ -1,0 +1,38 @@
+{
+  "name": "owasp-juice-lab",
+  "version": "1.0.0",
+  "description": "Deliberately vulnerable app for Checkmarx scanner testing (OWASP Top 10 2021). DO NOT DEPLOY.",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "express": "4.16.0",
+    "body-parser": "1.18.2",
+    "cookie-parser": "1.4.3",
+    "mysql": "2.15.0",
+    "mongodb": "3.1.1",
+    "jsonwebtoken": "0.4.0",
+    "lodash": "4.17.4",
+    "handlebars": "4.0.11",
+    "marked": "0.3.6",
+    "serialize-javascript": "1.4.0",
+    "node-serialize": "0.0.4",
+    "axios": "0.18.0",
+    "request": "2.81.0",
+    "xmldom": "0.1.27",
+    "libxmljs": "0.18.0",
+    "js-yaml": "3.10.0",
+    "adm-zip": "0.4.7",
+    "tar": "2.2.1",
+    "ejs": "2.5.7",
+    "pug": "2.0.0-beta6",
+    "validator": "9.0.0",
+    "moment": "2.19.3",
+    "minimist": "1.2.0",
+    "fstream": "1.0.11",
+    "jquery": "3.2.1",
+    "swagger-ui-express": "3.0.0"
+  },
+  "devDependencies": {}
+}
