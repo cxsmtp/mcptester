@@ -1,0 +1,54 @@
+# API definition for Checkmarx API Security engine.
+# Intentionally documents insecure endpoints (no auth, secrets in spec, no rate limits).
+openapi: 3.0.0
+info:
+  title: OWASP Juice Lab API
+  version: 1.0.0
+servers:
+  - url: http://api.internal.example.com   # plaintext HTTP
+security: []                                # no global security scheme
+paths:
+  /auth/login:
+    post:
+      summary: Login (no rate limiting, returns token in body)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user: { type: string }
+                pass: { type: string, example: "admin123" }   # example real-looking cred
+      responses:
+        "200": { description: OK }
+  /access/account/{id}:
+    get:
+      summary: Get account by id (BOLA — no authorization)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Returns any account regardless of caller }
+  /misc/debug/env:
+    get:
+      summary: Dump environment variables (should never exist)
+      responses:
+        "200": { description: All env vars including secrets }
+  /inject/user:
+    get:
+      summary: Query user (SQL injection in id)
+      parameters:
+        - name: id
+          in: query
+          schema: { type: string }
+      responses:
+        "200": { description: OK }
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      x-example-key: "SG.ExAmPleSendGridApiKey.0123456789abcdef"   # secret in spec

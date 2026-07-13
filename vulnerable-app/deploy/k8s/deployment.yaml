@@ -1,0 +1,53 @@
+# KICS Kubernetes misconfigurations. Intentionally insecure.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vuln-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vuln-app
+  template:
+    metadata:
+      labels:
+        app: vuln-app
+    spec:
+      hostNetwork: true          # KICS: host network
+      hostPID: true              # KICS: host PID namespace
+      containers:
+        - name: app
+          image: vuln-app:latest # KICS: latest tag, no digest
+          securityContext:
+            privileged: true                 # KICS: privileged
+            runAsNonRoot: false              # KICS: runs as root
+            allowPrivilegeEscalation: true   # KICS: priv escalation allowed
+            readOnlyRootFilesystem: false    # KICS: writable root fs
+            capabilities:
+              add: ["SYS_ADMIN", "NET_ADMIN"]
+          env:
+            - name: DB_PASSWORD
+              value: "Sup3rS3cr3tR00tP@ss!"  # KICS: secret in plaintext env
+          ports:
+            - containerPort: 3000
+          # No resource limits/requests, no liveness/readiness probes
+          volumeMounts:
+            - name: host
+              mountPath: /host
+      volumes:
+        - name: host
+          hostPath:
+            path: /               # KICS: mounts host root
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vuln-app
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Cluster
+  ports:
+    - port: 80
+      targetPort: 3000
+  selector:
+    app: vuln-app
